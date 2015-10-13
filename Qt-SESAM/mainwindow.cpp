@@ -247,7 +247,8 @@ MainWindow::MainWindow(bool forceStart, QWidget *parent)
   QObject::connect(ui->copyLegacyPasswordToClipboardPushButton, SIGNAL(clicked()), SLOT(copyLegacyPasswordToClipboard()));
   QObject::connect(ui->copyUsernameToClipboardPushButton, SIGNAL(clicked()), SLOT(copyUsernameToClipboard()));
   QObject::connect(ui->renewSaltPushButton, SIGNAL(clicked()), SLOT(onRenewSalt()));
-  QObject::connect(ui->actionSave, SIGNAL(triggered(bool)), SLOT(saveCurrentDomainSettings()));
+  QObject::connect(ui->actionSave, SIGNAL(triggered(bool)), SLOT(onSave()));
+  QObject::connect(ui->savePushButton, SIGNAL(clicked(bool)), SLOT(onSave()));
   QObject::connect(ui->actionClearAllSettings, SIGNAL(triggered(bool)), SLOT(clearAllSettings()));
   QObject::connect(ui->actionSyncNow, SIGNAL(triggered(bool)), SLOT(sync()));
   QObject::connect(ui->actionForcedPush, SIGNAL(triggered(bool)), SLOT(onForcedPush()));
@@ -585,7 +586,10 @@ void MainWindow::cancelPasswordGeneration(void)
 void MainWindow::setDirty(bool dirty)
 {
   Q_D(MainWindow);
+  qDebug() << "MainWindow::setDirty(" << dirty << ")";
   d->parameterSetDirty = dirty;
+  ui->actionSave->setEnabled(dirty);
+  ui->savePushButton->setEnabled(dirty);
   updateWindowTitle();
 }
 
@@ -1257,6 +1261,18 @@ void MainWindow::writeBackupFile(const QByteArray &binaryDomainData)
 }
 
 
+void MainWindow::onSave(void)
+{
+  Q_D(MainWindow);
+  qDebug() << "MainWindow::onSave()";
+  if (!d->parameterSetDirty || ui->domainsComboBox->currentText().isEmpty()) {
+    ui->statusBar->showMessage(tr("No changes. Not saving."), 2000);
+    return;
+  }
+  saveAllDomainDataToSettings();
+}
+
+
 void MainWindow::saveAllDomainDataToSettings(void)
 {
   Q_D(MainWindow);
@@ -1267,18 +1283,23 @@ void MainWindow::saveAllDomainDataToSettings(void)
     cipher = Crypter::encode(d->masterKey, d->IV, d->salt, d->KGK, d->domains.toJson(), CompressionEnabled);
   }
   catch (CryptoPP::Exception &e) {
+    // TODO: warn user that encryption went wrong
     qErrnoWarning((int)e.GetErrorType(), e.what());
   }
   d->keyGenerationMutex.unlock();
 
-  const QByteArray &binaryDomainData = cipher.toBase64();
-  d->settings.setValue("sync/domains", QString::fromUtf8(binaryDomainData));
-  d->settings.sync();
-
-  if (d->masterPasswordChangeStep == 0) {
-    if (d->optionsDialog->writeBackups())
-      writeBackupFile(binaryDomainData);
-    generateSaltKeyIV().waitForFinished();
+  if (!cipher.isEmpty()) {
+    const QByteArray &binaryDomainData = cipher.toBase64();
+    d->settings.setValue("sync/domains", QString::fromUtf8(binaryDomainData));
+    d->settings.sync();
+    if (d->masterPasswordChangeStep == 0) {
+      if (d->optionsDialog->writeBackups())
+        writeBackupFile(binaryDomainData);
+      generateSaltKeyIV().waitForFinished();
+    }
+  }
+  else {
+    // TODO: warn user that encryption went wrong
   }
 }
 
@@ -1348,7 +1369,12 @@ void MainWindow::saveSettings(void)
   }
   d->keyGenerationMutex.unlock();
 
+  if (!baCryptedData.isEmpty()) {
   d->settings.setValue("sync/param", QString::fromUtf8(baCryptedData.toBase64()));
+  }
+  else {
+    // TODO: warn user that encryption went wrong
+  }
 
   d->settings.setValue("mainwindow/geometry", saveGeometry());
   d->settings.setValue("misc/masterPasswordInvalidationTimeMins", d->optionsDialog->masterPasswordInvalidationTimeMins());

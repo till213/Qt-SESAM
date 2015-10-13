@@ -86,7 +86,7 @@
     </message>
     <message>
         <source>Save</source>
-        <translation type="vanished">Speichern</translation>
+        <translation>Speichern</translation>
     </message>
     <message>
         <source>Main parameters</source>
@@ -846,6 +846,10 @@
     <message>
         <source>Ctrl+E, Ctrl+M</source>
         <translation></translation>
+    </message>
+    <message>
+        <source>No changes. Not saving.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

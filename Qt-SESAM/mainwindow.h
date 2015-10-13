@@ -99,6 +99,7 @@ private slots:
   void onEscPressed(void);
   void renewSalt(void);
   void onRenewSalt(void);
+  void onSave(void);
   void cancelPasswordGeneration(void);
   void stopPasswordGeneration(void);
   void changeMasterPassword(void);
